@@ -75,7 +75,7 @@ function updateTab(tab, tabIndex, visibleTabCount) {
         {
           code: `document.title = ${JSON.stringify(newTitle)};`
         }
-      );
+      ).catch(onError);
       console.log(`Executed: ${tab.id}`);
     } catch (e) {
       console.log('Tab numbering error:', e);
