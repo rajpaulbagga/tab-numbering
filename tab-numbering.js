@@ -23,7 +23,7 @@ const numberSet = new Set(numbers)
 const update = visibleTabs => {
   console.log('update(); ', visibleTabs);
 
-  for (var i = 0; i < visibleTabs.length; i++) {
+  for (let i = 0; i < visibleTabs.length; i++) {
     let tab = visibleTabs[i];
     updateTab(tab, i, visibleTabs.length);
   }
@@ -40,7 +40,7 @@ function updateTab(tab, tabIndex, visibleTabCount) {
 
 
   // Take out one of these numbers if it already exists in the title
-  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0]) && (tabIndex != visibleTabCount - 1 || newTitle[0] != numbers[MAX_COUNT]) ) {
+  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0]) && (tabIndex !== visibleTabCount - 1 || newTitle[0] !== numbers[MAX_COUNT]) ) {
     console.log('stripping number from title outside of range');
     newTitle = newTitle.substring(1);
   }
@@ -59,9 +59,9 @@ function updateTab(tab, tabIndex, visibleTabCount) {
       newTitle = numbers[tabIndex] + newTitle;
     }
   }
-  if (tabIndex >= MAX_COUNT && tabIndex == visibleTabCount - 1) {
+  if (tabIndex >= MAX_COUNT && tabIndex === visibleTabCount - 1) {
     // Special last tab handling as '9'
-    if (newTitle[0] != numbers[MAX_COUNT]) {
+    if (newTitle[0] !== numbers[MAX_COUNT]) {
       newTitle = numbers[MAX_COUNT] + newTitle;
     } else {
       return;
@@ -131,7 +131,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   querying.then(tabs => {
     visibleTabCount = tabs.length;
     for (var i = 0; i < visibleTabCount; i++) {
-      if (tabs[i].id == tabId) {
+      if (tabs[i].id === tabId) {
         tabIndex = i;
         break;
       }
