@@ -113,7 +113,7 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   /* Check that the tab has been removed every 100ms
      Firefox fires onRemoved BEFORE it removes the tab */
   const checkTabRemoval = () => {
-    browser.tabs.query({}, tabs => {
+    browser.tabs.query({ hidden: false, windowId: removeInfo.windowId }, tabs => {
       if (tabs.filter(tab => tab.id === tabId).length === 0)
         updateAll();
       else
@@ -127,19 +127,31 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
 // Must listen for tab updates
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   let querying = browser.tabs.query({ hidden: false, currentWindow: true });
-  let visibleTabCount = 0;
-  let tabIndex = 0;
   querying.then(tabs => {
-    visibleTabCount = tabs.length;
-    for (var i = 0; i < visibleTabCount; i++) {
-      if (tabs[i].id === tabId) {
-        tabIndex = i;
-        break;
-      }
-    }
-    console.log('update one tab!', tabIndex, visibleTabCount);
-    updateTab(tab, tabIndex, visibleTabCount);
-    }, onError)
+      let tabIndex = indexOfTab(tabs, tabId);
+      console.log('update one tab!', tabIndex, tabs.length);
+      updateTab(tab, tabIndex, tabs.length);
+    },
+    onError)
 });
+
+/**
+ * Get the index of tabId in the list of tabs.
+ *
+ * @param tabs List of tabs to scan
+ * @param tabId Id of tab to find.
+ * @returns {number} Index of tab with tabId in tabs
+ */
+function indexOfTab(tabs, tabId) {
+  let tabIndex = 0;
+  for (let i = 0; i < tabs.length; i++) {
+    if (tabs[i].id === tabId) {
+      tabIndex = i;
+      break;
+    }
+  }
+  return tabIndex;
+}
+
 console.log('startup!');
 updateAll();
