@@ -8,6 +8,11 @@
 'use strict';
 
 const browser = window.browser || window.chrome;
+const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
+
+const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+const number1CodePoint = numbers[0].codePointAt(0);
+const number9CodePoint = numbers[numbers.length - 1].codePointAt(0);
 
 /*
  * Function:     update
@@ -18,14 +23,6 @@ const browser = window.browser || window.chrome;
  */
 const update = visibleTabs => {
   console.log('update(); ', visibleTabs);
-
-  const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-  let tabCount = 9;
-
-  // If we are using Firefox
-  if (browser === window.browser)
-    tabCount = 8;
-
 
   for (var i = 0; i < visibleTabs.length; i++) {
     let tab = visibleTabs[i];
@@ -40,17 +37,17 @@ const update = visibleTabs => {
 
 
     // Take out one of these numbers if it already exists in the title
-    if (i >= tabCount && numbers.includes(newTitle[0])) {
+    if (i >= MAX_COUNT && titleContainsIndexIndicator(newTitle)) {
       console.log('stripping number from title outside of range');
       newTitle = newTitle.substring(1);
     }
 
-    if (i < tabCount) {
+    if (i < MAX_COUNT) {
       if (numbers[i] === newTitle[0]) {
         console.log("current title correct: ", oldTitle, '/', newTitle)
         continue;
       }
-      else if (numbers.includes(newTitle[0])) {
+      else if (titleContainsIndexIndicator(newTitle)) {
         console.log("current title is numbered, but wrong");
         newTitle = numbers[i] + newTitle.substring(1);
       }
@@ -59,9 +56,10 @@ const update = visibleTabs => {
         newTitle = numbers[i] + newTitle;
       }
     }
-    if (browser === window.browser && i >= tabCount && i == visibleTabs.length - 1) {
-      if (newTitle[0] != numbers[8]) {
-        newTitle = numbers[8] + newTitle;
+    if (i >= MAX_COUNT && i == visibleTabs.length - 1) {
+      // Special last tab handling as '9'
+      if (newTitle[0] != numbers[MAX_COUNT]) {
+        newTitle = numbers[MAX_COUNT] + newTitle;
       }
     }
     console.log('  oldTitle: ', oldTitle, '; newTitle: ', newTitle);
@@ -80,6 +78,11 @@ const update = visibleTabs => {
     }
   }
 };
+
+function titleContainsIndexIndicator(title) {
+  let firstCharCodePoint = title.codePointAt(0);
+  return firstCharCodePoint >= number1CodePoint && firstCharCodePoint <= number9CodePoint;
+}
 
 function onError(error) {
   console.log(`Error: ${error}`);
