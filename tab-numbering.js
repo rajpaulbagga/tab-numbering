@@ -40,7 +40,7 @@ function updateTab(tab, tabIndex, visibleTabCount) {
 
 
   // Take out one of these numbers if it already exists in the title
-  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0])) {
+  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0]) && (tabIndex != visibleTabCount - 1 || newTitle[0] != numbers[MAX_COUNT]) ) {
     console.log('stripping number from title outside of range');
     newTitle = newTitle.substring(1);
   }
@@ -63,6 +63,8 @@ function updateTab(tab, tabIndex, visibleTabCount) {
     // Special last tab handling as '9'
     if (newTitle[0] != numbers[MAX_COUNT]) {
       newTitle = numbers[MAX_COUNT] + newTitle;
+    } else {
+      return;
     }
   }
   console.log('  oldTitle: ', oldTitle, '; newTitle: ', newTitle);
