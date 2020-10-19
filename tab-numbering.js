@@ -11,7 +11,7 @@ const browser = window.browser || window.chrome;
 const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
 
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-const numberSet = new Set(numbers)
+const numberSet = new Set(numbers);
 
 /*
  * Function:     update
@@ -40,14 +40,15 @@ function updateTab(tab, tabIndex, visibleTabCount) {
 
 
   // Take out one of these numbers if it already exists in the title
-  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0]) && (tabIndex !== visibleTabCount - 1 || newTitle[0] !== numbers[MAX_COUNT]) ) {
+  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0])
+      && (tabIndex !== visibleTabCount - 1 || newTitle[0] !== numbers[MAX_COUNT]) ) {
     console.log('stripping number from title outside of range');
     newTitle = newTitle.substring(1);
   }
 
   if (tabIndex < MAX_COUNT) {
     if (numbers[tabIndex] === newTitle[0]) {
-      console.log("current title correct: ", oldTitle, '/', newTitle)
+      console.log("current title correct: ", oldTitle, '/', newTitle);
       return;
     }
     else if (numberSet.has(newTitle[0])) {
