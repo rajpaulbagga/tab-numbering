@@ -153,7 +153,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       updateTab(tab, tabIndex, tabs.length);
     },
     onError)
-});
+}, { properties: ['title'] });
 
 /**
  * Get the index of tabId in the list of tabs.
