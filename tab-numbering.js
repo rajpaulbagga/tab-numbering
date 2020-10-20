@@ -23,7 +23,13 @@ const numberSet = new Set(numbers);
 const update = visibleTabs => {
   console.log('update(); ', visibleTabs);
 
-  for (let i = 0; i < visibleTabs.length; i++) {
+  updateSome(visibleTabs, 0);
+};
+
+const updateSome = (visibleTabs, startIndex) => {
+  console.log('updateSome(); ', startIndex, visibleTabs);
+
+  for (let i = startIndex; i < visibleTabs.length; i++) {
     let tab = visibleTabs[i];
     updateTab(tab, i, visibleTabs.length);
   }
@@ -42,21 +48,21 @@ function updateTab(tab, tabIndex, visibleTabCount) {
   // Take out one of these numbers if it already exists in the title
   if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0])
       && (tabIndex !== visibleTabCount - 1 || newTitle[0] !== numbers[MAX_COUNT]) ) {
-    console.log('stripping number from title outside of range');
+    console.log('  stripping number from title outside of range');
     newTitle = newTitle.substring(1);
   }
 
   if (tabIndex < MAX_COUNT) {
     if (numbers[tabIndex] === newTitle[0]) {
-      console.log("current title correct: ", oldTitle, '/', newTitle);
+      console.log('  current title correct: ', oldTitle, '/', newTitle);
       return;
     }
     else if (numberSet.has(newTitle[0])) {
-      console.log("current title is numbered, but wrong");
+      console.log('  current title is numbered, but wrong');
       newTitle = numbers[tabIndex] + newTitle.substring(1);
     }
     else {
-      console.log("current title is not numbered but needs to be");
+      console.log('  current title is not numbered but needs to be');
       newTitle = numbers[tabIndex] + newTitle;
     }
   }
@@ -77,9 +83,9 @@ function updateTab(tab, tabIndex, visibleTabCount) {
           code: `document.title = ${JSON.stringify(newTitle)};`
         }
       ).catch(onError);
-      console.log(`Executed: ${tab.id}`);
+      console.log(`  Executed: ${tab.id}`);
     } catch (e) {
-      console.log('Tab numbering error:', e);
+      console.log('  Tab numbering error:', e);
     }
   }
 }
@@ -103,7 +109,21 @@ const updateAll = () => {
 browser.tabs.onCreated.addListener(updateAll);
 
 // Must listen for tabs being attached from other windows
-browser.tabs.onAttached.addListener(updateAll);
+// browser.tabs.onAttached.addListener(updateAll);
+browser.tabs.onAttached.addListener((tabId, attachInfo) => {
+  console.log('onAttached(); ', tabId, attachInfo)
+  let querying = browser.tabs.query({ hidden: false, windowId: attachInfo.newWindowId });
+  querying.then(tabs => {
+    let oldTabIndex = indexOfTab(tabs, tabId);
+    updateSome(tabs, oldTabIndex)
+  })
+})
+
+browser.tabs.onDetached.addListener((tabId, detachInfo) => {
+  console.log('onDetached(); ', tabId, detachInfo)
+  let querying = browser.tabs.query({ hidden: false, windowId: detachInfo.oldWindowId });
+  querying.then(update, onError);
+})
 
 // Must listen for tabs being moved
 browser.tabs.onMoved.addListener(updateAll);
@@ -126,10 +146,10 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
 
 // Must listen for tab updates
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  let querying = browser.tabs.query({ hidden: false, currentWindow: true });
+  let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
   querying.then(tabs => {
       let tabIndex = indexOfTab(tabs, tabId);
-      console.log('update one tab!', tabIndex, tabs.length);
+      console.log('onUpdated(); ', tabIndex, tabs.length);
       updateTab(tab, tabIndex, tabs.length);
     },
     onError)
