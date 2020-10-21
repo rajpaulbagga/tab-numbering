@@ -12,7 +12,6 @@ const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from specia
 const NUMBER_TAG_LEN = 2; // number of characters in the numeric tag
 
 const invisibleSep = '\u2063';  // Invisible Separator
-const lineSep = '\u2028';  // Line Separator
 const marker = invisibleSep;
 
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
@@ -84,6 +83,7 @@ function updateTab(tab, tabIndex, visibleTabCount) {
   if (tabIndex >= MAX_COUNT && tabIndex === visibleTabCount - 1) {
     // Special last tab handling as '9'
     if (newTitle[1] !== numbers[MAX_COUNT]) {
+      console.log('  marking last tab as 9');
       newTitle = marker + numbers[MAX_COUNT] + newTitle;
     } else {
       return;
@@ -126,7 +126,7 @@ browser.tabs.onCreated.addListener(updateAll);
 // Must listen for tabs being attached from other windows
 // browser.tabs.onAttached.addListener(updateAll);
 browser.tabs.onAttached.addListener((tabId, attachInfo) => {
-  console.log('onAttached(); ', tabId, attachInfo)
+  console.log('onAttached(); ', tabId, attachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: attachInfo.newWindowId });
   querying.then(tabs => {
     let newTabIndex = indexOfTab(tabs, tabId);
@@ -136,10 +136,10 @@ browser.tabs.onAttached.addListener((tabId, attachInfo) => {
     }
     updateSome(tabs, newTabIndex);
   });
-})
+});
 
 browser.tabs.onDetached.addListener((tabId, detachInfo) => {
-  console.log('onDetached(); ', tabId, detachInfo)
+  console.log('onDetached(); ', tabId, detachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: detachInfo.oldWindowId });
   querying.then(async tabs => {
     let startIndex = 0;
@@ -149,10 +149,13 @@ browser.tabs.onDetached.addListener((tabId, detachInfo) => {
     }
     updateSome(tabs, startIndex);
   });
-})
+});
 
 // Must listen for tabs being moved
-browser.tabs.onMoved.addListener(updateAll);
+browser.tabs.onMoved.addListener((tabId, moveInfo) => {
+  console.log('onMoved();');
+  updateAll();
+});
 
 // Must listen for tabs being removed
 browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
@@ -180,6 +183,13 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     },
     onError);
 }, { properties: ['title'] });
+
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  console.log('onUpdatedHidden();');
+  // because we don't know if a tab was moved by Simple Tab Groups or the
+  // active group was changed, we need to just blast through everything
+  updateAll();
+}, { properties: ['hidden'] });
 
 /**
  * Get the index of tabId in the list of tabs.
