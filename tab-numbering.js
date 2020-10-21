@@ -9,9 +9,24 @@
 
 const browser = window.browser || window.chrome;
 const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
+const NUMBER_TAG_LEN = 2; // number of characters in the numeric tag
+
+const invisibleSep = '\u2063';  // Invisible Separator
+const lineSep = '\u2028';  // Line Separator
+const marker = invisibleSep;
 
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-const numberSet = new Set(numbers);
+const numToIndex = new Map();
+for (let i = 0; i < numbers.length; i++) {
+  numToIndex[numbers[i]] = i;
+}
+
+function hasNumberMarker(value) {
+  return value.length > NUMBER_TAG_LEN && value[0] === marker;
+}
+function markedIndex(value) {
+  return numToIndex[value[1]];
+}
 
 /*
  * Function:     update
@@ -46,30 +61,30 @@ function updateTab(tab, tabIndex, visibleTabCount) {
 
 
   // Take out one of these numbers if it already exists in the title
-  if (tabIndex >= MAX_COUNT && numberSet.has(newTitle[0])
-      && (tabIndex !== visibleTabCount - 1 || newTitle[0] !== numbers[MAX_COUNT]) ) {
+  if (tabIndex >= MAX_COUNT && hasNumberMarker(newTitle)
+      && (tabIndex !== visibleTabCount - 1 || newTitle[1] !== numbers[MAX_COUNT]) ) {
     console.log('  stripping number from title outside of range');
-    newTitle = newTitle.substring(1);
+    newTitle = newTitle.substring(NUMBER_TAG_LEN);
   }
 
   if (tabIndex < MAX_COUNT) {
-    if (numbers[tabIndex] === newTitle[0]) {
+    if (numbers[tabIndex] === newTitle[1]) {
       console.log('  current title correct: ', oldTitle, '/', newTitle);
       return;
     }
-    else if (numberSet.has(newTitle[0])) {
+    else if (hasNumberMarker(newTitle)) {
       console.log('  current title is numbered, but wrong');
-      newTitle = numbers[tabIndex] + newTitle.substring(1);
+      newTitle = marker + numbers[tabIndex] + newTitle.substring(NUMBER_TAG_LEN);
     }
     else {
       console.log('  current title is not numbered but needs to be');
-      newTitle = numbers[tabIndex] + newTitle;
+      newTitle = marker + numbers[tabIndex] + newTitle;
     }
   }
   if (tabIndex >= MAX_COUNT && tabIndex === visibleTabCount - 1) {
     // Special last tab handling as '9'
-    if (newTitle[0] !== numbers[MAX_COUNT]) {
-      newTitle = numbers[MAX_COUNT] + newTitle;
+    if (newTitle[1] !== numbers[MAX_COUNT]) {
+      newTitle = marker + numbers[MAX_COUNT] + newTitle;
     } else {
       return;
     }
@@ -114,15 +129,26 @@ browser.tabs.onAttached.addListener((tabId, attachInfo) => {
   console.log('onAttached(); ', tabId, attachInfo)
   let querying = browser.tabs.query({ hidden: false, windowId: attachInfo.newWindowId });
   querying.then(tabs => {
-    let oldTabIndex = indexOfTab(tabs, tabId);
-    updateSome(tabs, oldTabIndex)
-  })
+    let newTabIndex = indexOfTab(tabs, tabId);
+    if (newTabIndex + 1 === tabs.length) {
+      // Was attached to last position, need to update starting with the prior last position so its '9' gets removed
+      newTabIndex--;
+    }
+    updateSome(tabs, newTabIndex);
+  });
 })
 
 browser.tabs.onDetached.addListener((tabId, detachInfo) => {
   console.log('onDetached(); ', tabId, detachInfo)
   let querying = browser.tabs.query({ hidden: false, windowId: detachInfo.oldWindowId });
-  querying.then(update, onError);
+  querying.then(async tabs => {
+    let startIndex = 0;
+    let tab = await browser.tabs.get(tabId);
+    if (hasNumberMarker(tab.title)) {
+      startIndex = markedIndex(tab.title);
+    }
+    updateSome(tabs, startIndex);
+  });
 })
 
 // Must listen for tabs being moved
@@ -144,7 +170,7 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   checkTabRemoval();
 });
 
-// Must listen for tab updates
+// Must listen for tab updates to titles
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
   querying.then(tabs => {
@@ -152,7 +178,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       console.log('onUpdated(); ', tabIndex, tabs.length);
       updateTab(tab, tabIndex, tabs.length);
     },
-    onError)
+    onError);
 }, { properties: ['title'] });
 
 /**
