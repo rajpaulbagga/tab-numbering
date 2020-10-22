@@ -12,8 +12,7 @@ const browser = window.browser || window.chrome;
 const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
 const NUMBER_TAG_LEN = 2; // number of characters in the numeric tag
 
-const invisibleSep = '\u2063';  // Invisible Separator
-const marker = invisibleSep;
+const marker = '\u2063';  // Invisible Separator to act as a marker prefix on titles that have been tagged with a number
 
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 const numToIndex = new Map();
@@ -21,35 +20,60 @@ for (let i = 0; i < numbers.length; i++) {
   numToIndex.set(numbers[i], i);
 }
 
-function hasNumberMarker(value) {
-  return value.length > NUMBER_TAG_LEN && value[0] === marker;
-}
-function markedIndex(value) {
-  return numToIndex.get(value[1]);
-}
-
-/*
- * Function:     update
- * Description:  Updates a tab to have the desired tab number
- * Parameters:   tab (tabs.Tab)
- *                 - The current tab
- * Returns:      void
+/**
+ * Determines if a title has been tagged with a number.
+ *
+ * @param title Page title to test
+ * @returns {boolean} True if the title has been marked
  */
-const update = visibleTabs => {
-  console.log('update(); ', visibleTabs);
+function hasNumberMarker(title) {
+  return title.length > NUMBER_TAG_LEN && title[0] === marker;
+}
 
-  updateSome(visibleTabs, 0);
-};
+/**
+ * Given a title that has been tagged (i.e. {@link #hasNumberMarker} returns true),
+ * determine its 0-based index position among visible tabs within the current window.
+ *
+ * @param title The title to query on
+ * @returns {any} The 0-based index of the tab.
+ */
+function markedIndex(title) {
+  return numToIndex.get(title[1]);
+}
 
-const updateSome = (visibleTabs, startIndex) => {
-  console.log('updateSome(); ', startIndex, visibleTabs);
+/**
+ * Updates all the provided tabs on the assumption they represent all visible tabs.
+ *
+ * @param visibleTabs All the currently visible tabs for a window.
+ */
+function updateTabs(visibleTabs) {
+  console.log('updateTabs(); ', visibleTabs);
+
+  updateSomeTabs(visibleTabs, 0);
+}
+
+/**
+ * Updates some of the provided tabs, all from the provided starting index to the end.
+ *
+ * @param visibleTabs All the currently visible tabs for a window.
+ * @param startIndex The starting index to update from.
+ */
+function updateSomeTabs(visibleTabs, startIndex) {
+  console.log('updateSomeTabs(); ', startIndex, visibleTabs);
 
   for (let i = startIndex; i < visibleTabs.length; i++) {
     let tab = visibleTabs[i];
     updateTab(tab, i, visibleTabs.length);
   }
-};
+}
 
+/**
+ * Update the given tab at the visible, 0-based index provided.
+ *
+ * @param tab The tab to update.
+ * @param tabIndex The 0-based index declaring the tab's position among visible tabs in the window.
+ * @param visibleTabCount The total count of visible tabs in the window.
+ */
 function updateTab(tab, tabIndex, visibleTabCount) {
   const oldTitle = tab.title;
   let newTitle = oldTitle;
@@ -62,7 +86,7 @@ function updateTab(tab, tabIndex, visibleTabCount) {
 
   // Take out one of these numbers if it already exists in the title
   if (tabIndex >= MAX_COUNT && hasNumberMarker(newTitle)
-      && (tabIndex !== visibleTabCount - 1 || newTitle[1] !== numbers[MAX_COUNT]) ) {
+      && (tabIndex !== visibleTabCount - 1 || newTitle[1] !== numbers[MAX_COUNT])) {
     console.log('  stripping number from title outside of range');
     newTitle = newTitle.substring(NUMBER_TAG_LEN);
   }
@@ -71,12 +95,10 @@ function updateTab(tab, tabIndex, visibleTabCount) {
     if (numbers[tabIndex] === newTitle[1]) {
       console.log('  current title correct: ', oldTitle, '/', newTitle);
       return;
-    }
-    else if (hasNumberMarker(newTitle)) {
+    } else if (hasNumberMarker(newTitle)) {
       console.log('  current title is numbered, but wrong');
       newTitle = marker + numbers[tabIndex] + newTitle.substring(NUMBER_TAG_LEN);
-    }
-    else {
+    } else {
       console.log('  current title is not numbered but needs to be');
       newTitle = marker + numbers[tabIndex] + newTitle;
     }
@@ -110,22 +132,18 @@ function onError(error) {
   console.log(`Error: ${error}`);
 }
 
-/*
- * Function:     updateAll
- * Description:  Updates all tabs to have the desired tab numbers
- * Parameters:   void
- * Returns:      void
+/**
+ * Find all visible tabs and update their titles.
  */
-const updateAll = () => {
+function updateAllVisible() {
   let querying = browser.tabs.query({ hidden: false, currentWindow: true });
-  querying.then(update, onError);
-};
+  querying.then(updateTabs, onError);
+}
 
 // Must listen for opening anchors in new tabs
-browser.tabs.onCreated.addListener(updateAll);
+browser.tabs.onCreated.addListener(updateAllVisible);
 
 // Must listen for tabs being attached from other windows
-// browser.tabs.onAttached.addListener(updateAll);
 browser.tabs.onAttached.addListener((tabId, attachInfo) => {
   console.log('onAttached(); ', tabId, attachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: attachInfo.newWindowId });
@@ -135,27 +153,30 @@ browser.tabs.onAttached.addListener((tabId, attachInfo) => {
       // Was attached to last position, need to update starting with the prior last position so its '9' gets removed
       newTabIndex--;
     }
-    updateSome(tabs, newTabIndex);
+    updateSomeTabs(tabs, newTabIndex);
   });
 });
 
+// Must listen for tabs getting detached from a window (as it moves to another) so that the remaining tabs get updated
 browser.tabs.onDetached.addListener((tabId, detachInfo) => {
   console.log('onDetached(); ', tabId, detachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: detachInfo.oldWindowId });
   querying.then(async tabs => {
     let startIndex = 0;
     let tab = await browser.tabs.get(tabId);
+    // If the departing tab had a number on it, then we know its index and only need to update
+    // tabs in that position and to the right.
     if (hasNumberMarker(tab.title)) {
       startIndex = markedIndex(tab.title);
     }
-    updateSome(tabs, startIndex);
+    updateSomeTabs(tabs, startIndex);
   });
 });
 
-// Must listen for tabs being moved
+// Must listen for tabs being moved within a window
 browser.tabs.onMoved.addListener((tabId, moveInfo) => {
   console.log('onMoved();');
-  updateAll();
+  updateAllVisible();
 });
 
 // Must listen for tabs being removed
@@ -165,7 +186,7 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   const checkTabRemoval = () => {
     browser.tabs.query({ hidden: false, windowId: removeInfo.windowId }, tabs => {
       if (tabs.filter(tab => tab.id === tabId).length === 0)
-        updateAll();
+        updateAllVisible();
       else
         setTimeout(checkTabRemoval, 100);
     });
@@ -174,7 +195,7 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   checkTabRemoval();
 });
 
-// Must listen for tab updates to titles
+// Must listen for tab updates to titles (i.e. page link navigation)
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
   querying.then(tabs => {
@@ -185,11 +206,12 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     onError);
 }, { properties: ['title'] });
 
+// Must listen for tabs getting hidden, e.g. due to Simple Tab Groups extension.
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   console.log('onUpdatedHidden();');
   // because we don't know if a tab was moved by Simple Tab Groups or the
   // active group was changed, we need to just blast through everything
-  updateAll();
+  updateAllVisible();
 }, { properties: ['hidden'] });
 
 /**
@@ -211,4 +233,4 @@ function indexOfTab(tabs, tabId) {
 }
 
 console.log('startup!');
-updateAll();
+updateAllVisible();
