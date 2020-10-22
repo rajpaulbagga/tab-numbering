@@ -18,14 +18,14 @@ const marker = invisibleSep;
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 const numToIndex = new Map();
 for (let i = 0; i < numbers.length; i++) {
-  numToIndex[numbers[i]] = i;
+  numToIndex.set(numbers[i], i);
 }
 
 function hasNumberMarker(value) {
   return value.length > NUMBER_TAG_LEN && value[0] === marker;
 }
 function markedIndex(value) {
-  return numToIndex[value[1]];
+  return numToIndex.get(value[1]);
 }
 
 /*
