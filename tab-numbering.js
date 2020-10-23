@@ -162,12 +162,18 @@ browser.tabs.onDetached.addListener((tabId, detachInfo) => {
   console.log('onDetached(); ', tabId, detachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: detachInfo.oldWindowId });
   querying.then(async tabs => {
-    let startIndex = 0;
+    // If we don't find a tagged position on the departing tab a few lines down, then we know
+    // it was in the "dead zone" between 8 and 9 and only need to refresh the last tab.
+    let startIndex = MAX_COUNT;
     let tab = await browser.tabs.get(tabId);
-    // If the departing tab had a number on it, then we know its index and only need to update
+    // But if the departing tab did have a number on it, then we know its index and need to update
     // tabs in that position and to the right.
     if (hasNumberMarker(tab.title)) {
       startIndex = markedIndex(tab.title);
+    }
+    if (startIndex === MAX_COUNT) {
+      // Old tab was in the greater than 8 zone. We only need to update the last tab.
+      startIndex = tabs.length - 1;
     }
     updateSomeTabs(tabs, startIndex);
   });
