@@ -112,8 +112,8 @@ function updateTab(tab, tabIndex, visibleTabCount) {
       return;
     }
   }
-  console.log('  oldTitle: ', oldTitle, '; newTitle: ', newTitle);
   if (oldTitle !== newTitle) {
+    console.log('  oldTitle: ', oldTitle, '; newTitle: ', newTitle);
     try {
       browser.tabs.executeScript(
         tab.id,
@@ -125,6 +125,8 @@ function updateTab(tab, tabIndex, visibleTabCount) {
     } catch (e) {
       console.log('  Tab numbering error:', e);
     }
+  } else {
+    console.log('  current title correct: ', oldTitle, '/', newTitle);
   }
 }
 
@@ -206,18 +208,30 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
   querying.then(tabs => {
       let tabIndex = indexOfTab(tabs, tabId);
-      console.log('onUpdated(); ', tabIndex, tabs.length);
+      console.log('onUpdatedTitle(); ', tabIndex, tabs.length);
       updateTab(tab, tabIndex, tabs.length);
     },
     onError);
 }, { properties: ['title'] });
 
+let hideUpdateInProgress = false;
+
 // Must listen for tabs getting hidden, e.g. due to Simple Tab Groups extension.
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   console.log('onUpdatedHidden();');
+  // When switching tab groups, a lot of these events are fired. Ignore all but the first, and then delay update for
+  // half a second -- plenty of time for the group switch to finish, but still a human reasonable update delay.
+  if (hideUpdateInProgress) {
+    return;
+  }
+  hideUpdateInProgress = true;
   // because we don't know if a tab was moved by Simple Tab Groups or the
   // active group was changed, we need to just blast through everything
-  updateAllVisible();
+  setTimeout(() => {
+      updateAllVisible();
+      hideUpdateInProgress = false;
+    },
+    500);
 }, { properties: ['hidden'] });
 
 /**
