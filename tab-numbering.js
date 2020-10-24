@@ -127,12 +127,15 @@ function updateTab(tab, tabIndex, visibleTabCount) {
           code: `document.title = ${JSON.stringify(newTitle)};`
         }
       ).then(result => {
+        console.log('  title updated to: ', result);
         if (!result[0]) {
           // Error updating title. Typically from system or official Mozilla tabs that can't be touched.
+          console.log("title didn't update. Cleaning out tabsWeUpdatedTitle", result[0], tab.id);
           tabsWeUpdatedTitle.delete(tab.id);
         }
       }, error => {
         // still need to clean out this set
+        console.log('error updating title. Cleaning out tabsWeUpdatedTitle', error, tab.id);
         tabsWeUpdatedTitle.delete(tab.id);
       });
       console.log(`  Executed: ${tab.id}`);
@@ -149,11 +152,24 @@ function onError(error) {
 }
 
 /**
- * Find all visible tabs and update their titles.
+ * Find all visible tabs for a given window and update their titles.
+ * @param windowId {number} the Window id to scan and update
  */
-function updateAllVisible() {
-  let querying = browser.tabs.query({ hidden: false, currentWindow: true });
+function updateAllForWindow(windowId) {
+  let querying = browser.tabs.query({ hidden: false, windowId: windowId });
+  // let querying = browser.tabs.query({ hidden: false, currentWindow: true });
   querying.then(updateTabs, onError);
+}
+
+/**
+ * Find all visible tabs in all windows and update their titles.
+ */
+function updateAllWindows() {
+  browser.windows.getAll({ windowTypes: [ 'normal' ] }).then((windows) => {
+    for (const window of windows) {
+      updateAllForWindow(window.id)
+    }
+  }, onError);
 }
 
 // Must listen for opening anchors in new tabs
@@ -209,7 +225,7 @@ browser.tabs.onDetached.addListener((tabId, detachInfo) => {
 // Must listen for tabs being moved within a window
 browser.tabs.onMoved.addListener((tabId, moveInfo) => {
   console.log('onMoved();');
-  updateAllVisible();
+  updateAllForWindow(moveInfo.windowId);
 });
 
 // Must listen for tabs being removed
@@ -219,7 +235,7 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   const checkTabRemoval = () => {
     browser.tabs.query({ hidden: false, windowId: removeInfo.windowId }, tabs => {
       if (tabs.filter(tab => tab.id === tabId).length === 0)
-        updateAllVisible();
+        updateAllForWindow(removeInfo.windowId);
       else
         setTimeout(checkTabRemoval, 100);
     });
@@ -258,7 +274,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // because we don't know if a tab was moved by Simple Tab Groups or the
   // active group was changed, we need to just blast through everything
   setTimeout(() => {
-      updateAllVisible();
+      updateAllForWindow(tab.windowId);
       hideUpdateInProgress = false;
     },
     500);
@@ -283,4 +299,10 @@ function indexOfTab(tabs, tabId) {
 }
 
 console.log('startup!');
-updateAllVisible();
+updateAllWindows();
+// Patch for bug where on startup some tabs don't update right. Don't want a memory leak.
+setTimeout(() => {
+  // Come along and clean out any stuff that needs to be cleaned out due to weird browser behavior.
+  console.log('clear tabsWeUpdatedTitle', tabsWeUpdatedTitle);
+  tabsWeUpdatedTitle.clear();
+}, 1000);
