@@ -20,10 +20,15 @@ for (let i = 0; i < numbers.length; i++) {
   numToIndex.set(numbers[i], i);
 }
 
+// When page navigation happens, we get a title changed event we need to respond to in order to update the number.
+// But when we update the number, we also trigger a title changed event. Use this as flag bucket
+// to signal to the title-update event handler to skip the update process when it is triggered due to our update.
+const tabsWeUpdatedTitle = new Set();
+
 /**
  * Determines if a title has been tagged with a number.
  *
- * @param title Page title to test
+ * @param title {string} Page title to test
  * @returns {boolean} True if the title has been marked
  */
 function hasNumberMarker(title) {
@@ -34,8 +39,8 @@ function hasNumberMarker(title) {
  * Given a title that has been tagged (i.e. {@link #hasNumberMarker} returns true),
  * determine its 0-based index position among visible tabs within the current window.
  *
- * @param title The title to query on
- * @returns {any} The 0-based index of the tab.
+ * @param title {string} The title to query on
+ * @returns {number} The 0-based index of the tab.
  */
 function markedIndex(title) {
   return numToIndex.get(title[1]);
@@ -44,7 +49,7 @@ function markedIndex(title) {
 /**
  * Updates all the provided tabs on the assumption they represent all visible tabs.
  *
- * @param visibleTabs All the currently visible tabs for a window.
+ * @param visibleTabs {array} All the currently visible tabs for a window.
  */
 function updateTabs(visibleTabs) {
   console.log('updateTabs(); ', visibleTabs);
@@ -55,8 +60,8 @@ function updateTabs(visibleTabs) {
 /**
  * Updates some of the provided tabs, all from the provided starting index to the end.
  *
- * @param visibleTabs All the currently visible tabs for a window.
- * @param startIndex The starting index to update from.
+ * @param visibleTabs {array} All the currently visible tabs for a window.
+ * @param startIndex {number} The starting index to update from.
  */
 function updateSomeTabs(visibleTabs, startIndex) {
   console.log('updateSomeTabs(); ', startIndex, visibleTabs);
@@ -71,8 +76,8 @@ function updateSomeTabs(visibleTabs, startIndex) {
  * Update the given tab at the visible, 0-based index provided.
  *
  * @param tab The tab to update.
- * @param tabIndex The 0-based index declaring the tab's position among visible tabs in the window.
- * @param visibleTabCount The total count of visible tabs in the window.
+ * @param tabIndex {number} The 0-based index declaring the tab's position among visible tabs in the window.
+ * @param visibleTabCount {number} The total count of visible tabs in the window.
  */
 function updateTab(tab, tabIndex, visibleTabCount) {
   const oldTitle = tab.title;
@@ -114,13 +119,22 @@ function updateTab(tab, tabIndex, visibleTabCount) {
   }
   if (oldTitle !== newTitle) {
     console.log('  oldTitle: ', oldTitle, '; newTitle: ', newTitle);
+    tabsWeUpdatedTitle.add(tab.id);
     try {
       browser.tabs.executeScript(
         tab.id,
         {
           code: `document.title = ${JSON.stringify(newTitle)};`
         }
-      ).catch(onError);
+      ).then(result => {
+        if (!result[0]) {
+          // Error updating title. Typically from system or official Mozilla tabs that can't be touched.
+          tabsWeUpdatedTitle.delete(tab.id);
+        }
+      }, error => {
+        // still need to clean out this set
+        tabsWeUpdatedTitle.delete(tab.id);
+      });
       console.log(`  Executed: ${tab.id}`);
     } catch (e) {
       console.log('  Tab numbering error:', e);
@@ -205,6 +219,11 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
 
 // Must listen for tab updates to titles (i.e. page link navigation)
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (tabsWeUpdatedTitle.has(tabId)) {
+    tabsWeUpdatedTitle.delete(tabId);
+    console.log("onUpdatedTitle(skip); ", tabsWeUpdatedTitle);
+    return;
+  }
   let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
   querying.then(tabs => {
       let tabIndex = indexOfTab(tabs, tabId);
@@ -216,7 +235,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 let hideUpdateInProgress = false;
 
-// Must listen for tabs getting hidden, e.g. due to Simple Tab Groups extension.
+// Must listen for tabs getting (un)hidden, e.g. due to Simple Tab Groups extension.
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   console.log('onUpdatedHidden();');
   // When switching tab groups, a lot of these events are fired. Ignore all but the first, and then delay update for
@@ -237,8 +256,8 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 /**
  * Get the index of tabId in the list of tabs.
  *
- * @param tabs List of tabs to scan
- * @param tabId Id of tab to find.
+ * @param tabs {array} List of tabs to scan
+ * @param tabId {number} Id of tab to find.
  * @returns {number} Index of tab with tabId in tabs
  */
 function indexOfTab(tabs, tabId) {
