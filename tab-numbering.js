@@ -157,7 +157,18 @@ function updateAllVisible() {
 }
 
 // Must listen for opening anchors in new tabs
-browser.tabs.onCreated.addListener(updateAllVisible);
+browser.tabs.onCreated.addListener((tab) => {
+  console.log('onCreated(); ', tab);
+  let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
+  querying.then(tabs => {
+    let newTabIndex = indexOfTab(tabs, tab.id);
+    if (newTabIndex + 1 === tabs.length) {
+      // Was attached to last position, need to update starting with the prior last position so its '9' gets removed
+      newTabIndex--;
+    }
+    updateSomeTabs(tabs, newTabIndex);
+  }, onError);
+});
 
 // Must listen for tabs being attached from other windows
 browser.tabs.onAttached.addListener((tabId, attachInfo) => {
@@ -170,7 +181,7 @@ browser.tabs.onAttached.addListener((tabId, attachInfo) => {
       newTabIndex--;
     }
     updateSomeTabs(tabs, newTabIndex);
-  });
+  }, onError);
 });
 
 // Must listen for tabs getting detached from a window (as it moves to another) so that the remaining tabs get updated
