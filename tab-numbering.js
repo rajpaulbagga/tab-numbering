@@ -138,6 +138,14 @@ function updateTab(tab, tabIndex, visibleTabCount) {
         console.log('error updating title. Cleaning out tabsWeUpdatedTitle', error, tab.id);
         tabsWeUpdatedTitle.delete(tab.id);
       });
+
+      // Come along and clean out any stuff that needs to be cleaned out due to weird browser behavior.
+      // Having issues where some tabs don't get the update event, but also don't return at all or error at all
+      // Need to clean them out to avoid memory leaks.
+      setTimeout(() => {
+        console.log('remove from tabsWeUpdatedTitle', tab.id, tabsWeUpdatedTitle);
+        tabsWeUpdatedTitle.delete(tab.id);
+      }, 500);
       console.log(`  Executed: ${tab.id}`);
     } catch (e) {
       console.log('  Tab numbering error:', e);
@@ -300,9 +308,3 @@ function indexOfTab(tabs, tabId) {
 
 console.log('startup!');
 updateAllWindows();
-// Patch for bug where on startup some tabs don't update right. Don't want a memory leak.
-setTimeout(() => {
-  // Come along and clean out any stuff that needs to be cleaned out due to weird browser behavior.
-  console.log('clear tabsWeUpdatedTitle', tabsWeUpdatedTitle);
-  tabsWeUpdatedTitle.clear();
-}, 1000);
