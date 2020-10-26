@@ -61,7 +61,7 @@ function updateTabs(visibleTabs) {
  * Updates some of the provided tabs, all from the provided starting index to the end.
  *
  * @param visibleTabs {array} All the currently visible tabs for a window.
- * @param startIndex {number} The starting index to update from.
+ * @param startIndex {number} The 0-based starting index to update from.
  */
 function updateSomeTabs(visibleTabs, startIndex) {
   console.log('updateSomeTabs(); ', startIndex, visibleTabs);
@@ -180,11 +180,15 @@ function updateAllWindows() {
   }, onError);
 }
 
-// Must listen for opening anchors in new tabs
+// ==================================================================================
+// Set up event handlers
+
+// Listen for opening anchors in new tabs
 browser.tabs.onCreated.addListener((tab) => {
   console.log('onCreated(); ', tab);
   let querying = browser.tabs.query({ hidden: false, windowId: tab.windowId });
   querying.then(tabs => {
+    // figure out position of new tab and update its title and all to the right that might be affected.
     let newTabIndex = indexOfTab(tabs, tab.id);
     if (newTabIndex + 1 === tabs.length) {
       // Was attached to last position, need to update starting with the prior last position so its '9' gets removed
@@ -194,11 +198,12 @@ browser.tabs.onCreated.addListener((tab) => {
   }, onError);
 });
 
-// Must listen for tabs being attached from other windows
+// Listen for tabs being attached (moved) from other windows
 browser.tabs.onAttached.addListener((tabId, attachInfo) => {
   console.log('onAttached(); ', tabId, attachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: attachInfo.newWindowId });
   querying.then(tabs => {
+    // figure out position of new tab and update its title and all to the right that might be affected.
     let newTabIndex = indexOfTab(tabs, tabId);
     if (newTabIndex + 1 === tabs.length) {
       // Was attached to last position, need to update starting with the prior last position so its '9' gets removed
@@ -208,11 +213,12 @@ browser.tabs.onAttached.addListener((tabId, attachInfo) => {
   }, onError);
 });
 
-// Must listen for tabs getting detached from a window (as it moves to another) so that the remaining tabs get updated
+// Listen for tabs getting detached from a window (as it moves to another) so that the remaining tabs get updated
 browser.tabs.onDetached.addListener((tabId, detachInfo) => {
   console.log('onDetached(); ', tabId, detachInfo);
   let querying = browser.tabs.query({ hidden: false, windowId: detachInfo.oldWindowId });
   querying.then(async tabs => {
+    // (Assume all tabs accessible by number have already been tagged in their title.)
     // If we don't find a tagged position on the departing tab a few lines down, then we know
     // it was in the "dead zone" between 8 and 9 and only need to refresh the last tab.
     let startIndex = MAX_COUNT;
@@ -230,16 +236,19 @@ browser.tabs.onDetached.addListener((tabId, detachInfo) => {
   });
 });
 
-// Must listen for tabs being moved within a window
+// Listen for tabs being moved within a window
 browser.tabs.onMoved.addListener((tabId, moveInfo) => {
   console.log('onMoved();');
+  // We can't know the old index in the visible list of tabs, so we don't know if it was moved to the right or left.
+  // Therefore there is no way to limit which tabs are updated if we are to be compatible with hidden tabs.
+  // Run through all.
   updateAllForWindow(moveInfo.windowId);
 });
 
-// Must listen for tabs being removed
+// Listen for tabs being removed
 browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  /* Check that the tab has been removed every 100ms
-     Firefox fires onRemoved BEFORE it removes the tab */
+  // Check that the tab has been removed every 100ms
+  // Firefox fires onRemoved BEFORE it removes the tab
   const checkTabRemoval = () => {
     browser.tabs.query({ hidden: false, windowId: removeInfo.windowId }, tabs => {
       if (tabs.filter(tab => tab.id === tabId).length === 0)
@@ -252,9 +261,10 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   checkTabRemoval();
 });
 
-// Must listen for tab updates to titles (i.e. page link navigation)
+// Listen for tab updates to titles (i.e. page link navigation)
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (tabsWeUpdatedTitle.has(tabId)) {
+    // This event was fired because we updated the title. Don't run through the update check a second time.
     tabsWeUpdatedTitle.delete(tabId);
     console.log("onUpdatedTitle(skip); ", tabsWeUpdatedTitle);
     return;
@@ -263,6 +273,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   querying.then(tabs => {
       let tabIndex = indexOfTab(tabs, tabId);
       console.log('onUpdatedTitle(); ', tabIndex, tabs.length);
+      // Update just this tab
       updateTab(tab, tabIndex, tabs.length);
     },
     onError);
@@ -270,7 +281,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 let hideUpdateInProgress = false;
 
-// Must listen for tabs getting (un)hidden, e.g. due to Simple Tab Groups extension.
+// Listen for tabs getting (un)hidden, e.g. due to Simple Tab Groups extension.
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   console.log('onUpdatedHidden();');
   // When switching tab groups, a lot of these events are fired. Ignore all but the first, and then delay update for
