@@ -173,7 +173,7 @@ function updateAllForWindow(windowId) {
  * Find all visible tabs in all windows and update their titles.
  */
 function updateAllWindows() {
-  browser.windows.getAll({ windowTypes: [ 'normal' ] }).then((windows) => {
+  browser.windows.getAll({ windowTypes: ['normal'] }).then((windows) => {
     for (const window of windows) {
       updateAllForWindow(window.id)
     }
@@ -316,6 +316,16 @@ function indexOfTab(tabs, tabId) {
   }
   return tabIndex;
 }
+
+/**
+ * When a user bookmarks a page with the number indicator, the default bookmark title is the page title.
+ * Strip the number indicator off the title if it is there when the bookmark is added.
+ */
+browser.bookmarks.onCreated.addListener((bookmarkId, bookmarkInfo) => {
+  if (hasNumberMarker(bookmarkInfo.title)) {
+    browser.bookmarks.update(bookmarkId, { title: bookmarkInfo.title.substring(NUMBER_TAG_LEN) });
+  }
+})
 
 console.log('startup!');
 updateAllWindows();
