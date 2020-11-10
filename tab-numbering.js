@@ -12,7 +12,7 @@ const browser = window.browser || window.chrome;
 const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
 const NUMBER_TAG_LEN = 2; // number of characters in the numeric tag
 
-const marker = '\x02';  // STX - Start of Text char. Invisible and has no width when rendered in the title.
+const marker = '\u2063';  // Invisible Separator to act as a marker prefix on titles that have been tagged with a number
 
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 const numToIndex = new Map();
