@@ -23,7 +23,7 @@ for (let i = 0; i < numbers.length; i++) {
 // When page navigation happens, we get a title changed event we need to respond to in order to update the number.
 // But when we update the number, we also trigger a title changed event. Use this as flag bucket
 // to signal to the title-update event handler to skip the update process when it is triggered due to our update.
-const tabsWeUpdatedTitle = new Set();
+const tabsWeUpdatedTitle = new Map();
 
 /**
  * Determines if a title has been tagged with a number.
@@ -119,7 +119,7 @@ function updateTab(tab, tabIndex, visibleTabCount) {
   }
   if (oldTitle !== newTitle) {
     console.log('  oldTitle: ', oldTitle, '; newTitle: ', newTitle);
-    tabsWeUpdatedTitle.add(tab.id);
+    tabsWeUpdatedTitle.set(tab.id, newTitle);
     try {
       browser.tabs.executeScript(
         tab.id,
@@ -263,7 +263,7 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
 
 // Listen for tab updates to titles (i.e. page link navigation)
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (tabsWeUpdatedTitle.has(tabId)) {
+  if (tabsWeUpdatedTitle.get(tabId) === changeInfo.title) {
     // This event was fired because we updated the title. Don't run through the update check a second time.
     tabsWeUpdatedTitle.delete(tabId);
     console.log("onUpdatedTitle(skip); ", tabsWeUpdatedTitle);
