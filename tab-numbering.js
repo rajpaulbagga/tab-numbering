@@ -3,7 +3,7 @@
  * Description:       Numbers your tabs!
  * Created by:        Tuomas Salo
  * Contributions by:  Austin Moore
- * Simple Tab Group compatibility:  Rajpaul Bagga
+ * Simple Tab Group compatibility rewrite:  Rajpaul Bagga
  */
 
 'use strict';
@@ -12,7 +12,7 @@ const browser = window.browser || window.chrome;
 const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
 const NUMBER_TAG_LEN = 2; // number of characters in the numeric tag
 
-const marker = '\u2063';  // Invisible Separator to act as a marker prefix on titles that have been tagged with a number
+const MARKER = '\u2063';  // Invisible Separator to act as a marker prefix on titles that have been tagged with a number
 
 const numbers = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 const numToIndex = new Map();
@@ -32,7 +32,7 @@ const tabsWeUpdatedTitle = new Map();
  * @returns {boolean} True if the title has been marked
  */
 function hasNumberMarker(title) {
-  return title.length > NUMBER_TAG_LEN && title[0] === marker;
+  return title.length > NUMBER_TAG_LEN && title[0] === MARKER;
 }
 
 /**
@@ -102,17 +102,17 @@ function updateTab(tab, tabIndex, visibleTabCount) {
       return;
     } else if (hasNumberMarker(newTitle)) {
       console.log('  current title is numbered, but wrong');
-      newTitle = marker + numbers[tabIndex] + newTitle.substring(NUMBER_TAG_LEN);
+      newTitle = MARKER + numbers[tabIndex] + newTitle.substring(NUMBER_TAG_LEN);
     } else {
       console.log('  current title is not numbered but needs to be');
-      newTitle = marker + numbers[tabIndex] + newTitle;
+      newTitle = MARKER + numbers[tabIndex] + newTitle;
     }
   }
   if (tabIndex >= MAX_COUNT && tabIndex === visibleTabCount - 1) {
     // Special last tab handling as '9'
     if (newTitle[1] !== numbers[MAX_COUNT]) {
       console.log('  marking last tab as 9');
-      newTitle = marker + numbers[MAX_COUNT] + newTitle;
+      newTitle = MARKER + numbers[MAX_COUNT] + newTitle;
     } else {
       return;
     }
@@ -165,7 +165,6 @@ function onError(error) {
  */
 function updateAllForWindow(windowId) {
   let querying = browser.tabs.query({ hidden: false, windowId: windowId });
-  // let querying = browser.tabs.query({ hidden: false, currentWindow: true });
   querying.then(updateTabs, onError);
 }
 
@@ -325,7 +324,7 @@ browser.bookmarks.onCreated.addListener((bookmarkId, bookmarkInfo) => {
   if (hasNumberMarker(bookmarkInfo.title)) {
     browser.bookmarks.update(bookmarkId, { title: bookmarkInfo.title.substring(NUMBER_TAG_LEN) });
   }
-})
+});
 
 console.log('startup!');
 updateAllWindows();
