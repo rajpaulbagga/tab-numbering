@@ -8,7 +8,6 @@
 
 'use strict';
 
-const browser = window.browser || window.chrome;
 const MAX_COUNT = 8; // Max tab that can be accessed this way, apart from special 9 handling as last tab.
 const NUMBER_TAG_LEN = 2; // number of characters in the numeric tag
 
