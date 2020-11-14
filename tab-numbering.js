@@ -248,11 +248,13 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   // Check that the tab has been removed every 100ms
   // Firefox fires onRemoved BEFORE it removes the tab
   const checkTabRemoval = () => {
-    browser.tabs.query({ hidden: false, windowId: removeInfo.windowId }, tabs => {
-      if (tabs.filter(tab => tab.id === tabId).length === 0)
+    browser.tabs.query({ hidden: false, windowId: removeInfo.windowId }).then(tabs => {
+      if (tabs.filter(tab => tab.id === tabId).length === 0) {
+        console.log('onRemoved(); tab removed', tabId);
         updateAllForWindow(removeInfo.windowId);
-      else
+      } else {
         setTimeout(checkTabRemoval, 100);
+      }
     });
   };
 
