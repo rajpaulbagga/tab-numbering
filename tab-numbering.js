@@ -3,7 +3,7 @@
  * Description:       Numbers your tabs!
  * Created by:        Tuomas Salo
  * Contributions by:  Austin Moore
- * Simple Tab Group compatibility rewrite:  Rajpaul Bagga
+ * 'Simple Tab Groups' compatibility rewrite:  Rajpaul Bagga
  */
 
 'use strict';
