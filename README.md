@@ -9,7 +9,7 @@ This extension writes the tab number to the first eight tabs and the last tab, t
 
 ## How to install
 
-- For Firefox: install from <a href="https://addons.mozilla.org/en-GB/firefox/addon/tab-numbering/">Mozilla Add-Ons</a>.
+- For Firefox: Go to Releases here and download the .xpi file.
 
 ## Known issues
 
